@@ -8,29 +8,32 @@ from droid.camera_utils.recording_readers.svo_reader import SVOReader
 
 
 class RecordedMultiCameraWrapper:
-    def __init__(self, recording_folderpath, camera_kwargs={}):
+    def __init__(self, recording_folderpath, camera_kwargs={}, flip_wrist_flag=False):
         # Save Camera Info #
         self.camera_kwargs = camera_kwargs
 
         # Open Camera Readers #
         svo_filepaths = glob.glob(recording_folderpath + "/*.svo")
+        # svo_filepaths = glob.glob(recording_folderpath + "/*.svo2")
         mp4_filepaths = glob.glob(recording_folderpath + "/*.mp4")
         all_filepaths = svo_filepaths + mp4_filepaths
 
         self.camera_dict = {}
         for f in all_filepaths:
             serial_number = f.split("/")[-1][:-4]
+            # serial_number = f.split("/")[-1].split(".")[0]
             cam_type = get_camera_type(serial_number)
             camera_kwargs.get(cam_type, {})
 
             if f.endswith(".svo"):
+            # if f.endswith(".svo2"):
                 Reader = SVOReader
             elif f.endswith(".mp4"):
                 Reader = MP4Reader
             else:
                 raise ValueError
 
-            self.camera_dict[serial_number] = Reader(f, serial_number)
+            self.camera_dict[serial_number] = Reader(f, serial_number, flip_wrist_flag)
 
     def read_cameras(self, index=None, camera_type_dict={}, timestamp_dict={}):
         full_obs_dict = defaultdict(dict)

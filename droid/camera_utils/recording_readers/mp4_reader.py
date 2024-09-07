@@ -8,7 +8,7 @@ resize_func_map = {"cv2": cv2.resize, None: None}
 
 
 class MP4Reader:
-    def __init__(self, filepath, serial_number):
+    def __init__(self, filepath, serial_number, flip_wrist_flag=False):
         # Save Parameters #
         self.serial_number = serial_number
         self._index = 0

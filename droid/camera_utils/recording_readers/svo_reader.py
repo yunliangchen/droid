@@ -11,7 +11,7 @@ resize_func_map = {"cv2": cv2.resize, None: None}
 
 
 class SVOReader:
-    def __init__(self, filepath, serial_number):
+    def __init__(self, filepath, serial_number, flip_wrist_flag=False):
         # Save Parameters #
         self.serial_number = serial_number
         self._index = 0
@@ -27,7 +27,13 @@ class SVOReader:
 
         # Set SVO path for playback
         init_parameters = sl.InitParameters()
-        init_parameters.camera_image_flip = sl.FLIP_MODE.OFF
+        if int(serial_number) < 20000000 and flip_wrist_flag: # Wrist Camera and Flip Flag
+            init_parameters.camera_image_flip = sl.FLIP_MODE.ON
+        else:
+            init_parameters.camera_image_flip = sl.FLIP_MODE.OFF
+        init_parameters.depth_mode = sl.DEPTH_MODE.NEURAL
+        init_parameters.coordinate_units = sl.UNIT.METER
+        init_parameters.enable_right_side_measure = True
         init_parameters.set_from_svo_file(filepath)
 
         # Open the ZED
@@ -97,8 +103,10 @@ class SVOReader:
             return {}
 
         # Read Camera #
+        runtime_parameters = sl.RuntimeParameters()
+        runtime_parameters.enable_fill_mode = True
         self._index += 1
-        err = self._cam.grab()
+        err = self._cam.grab(runtime_parameters)
         if err != sl.ERROR_CODE.SUCCESS:
             return None
         if ignore_data:
@@ -124,20 +132,21 @@ class SVOReader:
                 self._cam.retrieve_image(self._right_img, sl.VIEW.RIGHT, resolution=self.zed_resolution)
                 data_dict["image"] = {
                     self.serial_number + "_left": self._process_frame(self._left_img),
-                    self.serial_number + "_right": self._process_frame(self._right_img),
+                    self.serial_number + "_right": self._process_frame(self._right_img),}
+        if self.depth:
+            self._cam.retrieve_measure(self._left_depth, sl.MEASURE.DEPTH, resolution=self.zed_resolution)
+            # self._cam.retrieve_measure(self._right_depth, sl.MEASURE.DEPTH_RIGHT, resolution=self.zed_resolution)
+            data_dict['depth'] = {
+        		self.serial_number + '_left': self._left_depth.get_data().copy(),
+        		# self.serial_number + '_right': self._right_depth.get_data().copy()
                 }
-        # if self.depth:
-        # 	self._cam.retrieve_measure(self._left_depth, sl.MEASURE.DEPTH, resolution=self.resolution)
-        # 	self._cam.retrieve_measure(self._right_depth, sl.MEASURE.DEPTH_RIGHT, resolution=self.resolution)
-        # 	data_dict['depth'] = {
-        # 		self.serial_number + '_left': self._left_depth.get_data().copy(),
-        # 		self.serial_number + '_right': self._right_depth.get_data().copy()}
-        # if self.pointcloud:
-        # 	self._cam.retrieve_measure(self._left_pointcloud, sl.MEASURE.XYZRGBA, resolution=self.resolution)
-        # 	self._cam.retrieve_measure(self._right_pointcloud, sl.MEASURE.XYZRGBA_RIGHT, resolution=self.resolution)
-        # 	data_dict['pointcloud'] = {
-        # 		self.serial_number + '_left': self._left_pointcloud.get_data().copy(),
-        # 		self.serial_number + '_right': self._right_pointcloud.get_data().copy()}
+        if self.pointcloud:
+            self._cam.retrieve_measure(self._left_pointcloud, sl.MEASURE.XYZRGBA, resolution=self.zed_resolution)
+            # self._cam.retrieve_measure(self._right_pointcloud, sl.MEASURE.XYZRGBA_RIGHT, resolution=self.zed_resolution)
+            data_dict['pointcloud'] = {
+        		self.serial_number + '_left': self._left_pointcloud.get_data().copy(),
+        		# self.serial_number + '_right': self._right_pointcloud.get_data().copy()
+                }
 
         if return_timestamp:
             return data_dict, received_time
